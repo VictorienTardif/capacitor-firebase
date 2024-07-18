@@ -33,6 +33,12 @@ export interface FirebaseFirestorePlugin {
    */
   deleteDocument(options: DeleteDocumentOptions): Promise<void>;
   /**
+   * Execute multiple write operations as a single batch.
+   *
+   * @since 6.1.0
+   */
+  writeBatch(options: WriteBatchOptions): Promise<void>;
+  /**
    * Reads the collection referenced by the specified reference.
    *
    * @since 5.2.0
@@ -67,6 +73,12 @@ export interface FirebaseFirestorePlugin {
    */
   disableNetwork(): Promise<void>;
   /**
+   * Instrument your app to talk to the Firestore emulator.
+   *
+   * @since 6.1.0
+   */
+  useEmulator(options: UseEmulatorOptions): Promise<void>;
+  /**
    * Adds a listener for document snapshot events.
    *
    * @since 5.2.0
@@ -83,6 +95,15 @@ export interface FirebaseFirestorePlugin {
   addCollectionSnapshotListener<T extends DocumentData = DocumentData>(
     options: AddCollectionSnapshotListenerOptions,
     callback: AddCollectionSnapshotListenerCallback<T>,
+  ): Promise<CallbackId>;
+  /**
+   * Adds a listener for collection group snapshot events.
+   *
+   * @since 6.1.0
+   */
+  addCollectionGroupSnapshotListener<T extends DocumentData = DocumentData>(
+    options: AddCollectionGroupSnapshotListenerOptions,
+    callback: AddCollectionGroupSnapshotListenerCallback<T>,
   ): Promise<CallbackId>;
   /**
    * Remove a listener for document or collection snapshot events.
@@ -214,6 +235,42 @@ export interface DeleteDocumentOptions {
 }
 
 /**
+ * @since 6.1.0
+ */
+export interface WriteBatchOptions {
+  /**
+   * The operations to execute in the batch.
+   *
+   * @since 6.1.0
+   */
+  operations: WriteBatchOperation[];
+}
+
+/**
+ * @since 6.1.0
+ */
+export interface WriteBatchOperation {
+  /**
+   * The type of operation.
+   *
+   * @since 6.1.0
+   */
+  type: 'set' | 'update' | 'delete';
+  /**
+   * The reference as a string, with path components separated by a forward slash (`/`).
+   *
+   * @since 6.1.0
+   */
+  reference: string;
+  /**
+   * An object containing the data for the new document.
+   *
+   * @since 6.1.0
+   */
+  data?: DocumentData;
+}
+
+/**
  * @since 5.2.0
  */
 export interface GetCollectionOptions {
@@ -286,6 +343,29 @@ export interface GetCollectionGroupResult<T> {
 }
 
 /**
+ * @since 6.1.0
+ */
+export interface UseEmulatorOptions {
+  /**
+   * The emulator host without any port or scheme.
+   *
+   * Note when using a Android Emulator device: 10.0.2.2 is the special IP address to connect to the 'localhost' of the host computer.
+   *
+   * @since 6.1.0
+   * @example "127.0.0.1"
+   */
+  host: string;
+  /**
+   * The emulator port.
+   *
+   * @since 6.1.0
+   * @default 8080
+   * @example 8080
+   */
+  port?: number;
+}
+
+/**
  * @since 5.2.0
  */
 export interface AddDocumentSnapshotListenerOptions {
@@ -347,6 +427,44 @@ export type AddCollectionSnapshotListenerCallback<T> = (
  */
 export type AddCollectionSnapshotListenerCallbackEvent<T> =
   GetCollectionResult<T>;
+
+/**
+ * @since 6.1.0
+ */
+export interface AddCollectionGroupSnapshotListenerOptions {
+  /**
+   * The reference as a string, with path components separated by a forward slash (`/`).
+   *
+   * @since 6.1.0
+   */
+  reference: string;
+  /**
+   * The filter to apply.
+   *
+   * @since 6.1.0
+   */
+  compositeFilter?: QueryCompositeFilterConstraint;
+  /**
+   * Narrow or order the set of documents to retrieve, but do not explicitly filter for document fields.
+   *
+   * @since 6.1.0
+   */
+  queryConstraints?: QueryNonFilterConstraint[];
+}
+
+/**
+ * @since 6.1.0
+ */
+export type AddCollectionGroupSnapshotListenerCallback<T> = (
+  event: AddCollectionGroupSnapshotListenerCallbackEvent<T> | null,
+  error: any,
+) => void;
+
+/**
+ * @since 6.1.0
+ */
+export type AddCollectionGroupSnapshotListenerCallbackEvent<T> =
+  GetCollectionGroupResult<T>;
 
 /**
  * @since 5.2.0

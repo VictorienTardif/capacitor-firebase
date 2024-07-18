@@ -14,6 +14,7 @@ import {
   clearIndexedDbPersistence,
   collection,
   collectionGroup,
+  connectFirestoreEmulator,
   deleteDoc,
   disableNetwork,
   doc,
@@ -34,9 +35,12 @@ import {
   startAt,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 import type {
+  AddCollectionGroupSnapshotListenerCallback,
+  AddCollectionGroupSnapshotListenerOptions,
   AddCollectionSnapshotListenerCallback,
   AddCollectionSnapshotListenerCallbackEvent,
   AddCollectionSnapshotListenerOptions,
@@ -60,6 +64,8 @@ import type {
   QueryNonFilterConstraint,
   RemoveSnapshotListenerOptions,
   SetDocumentOptions,
+  UseEmulatorOptions,
+  WriteBatchOptions,
 } from './definitions';
 
 export class FirebaseFirestoreWeb
@@ -126,6 +132,28 @@ export class FirebaseFirestoreWeb
     await deleteDoc(doc(firestore, reference));
   }
 
+  public async writeBatch(options: WriteBatchOptions): Promise<void> {
+    const firestore = getFirestore();
+    const { operations } = options;
+    const batch = writeBatch(firestore);
+    for (const operation of operations) {
+      const { type, reference, data } = operation;
+      const documentReference = doc(firestore, reference);
+      switch (type) {
+        case 'set':
+          batch.set(documentReference, data);
+          break;
+        case 'update':
+          batch.update(documentReference, data ?? {});
+          break;
+        case 'delete':
+          batch.delete(documentReference);
+          break;
+      }
+    }
+    await batch.commit();
+  }
+
   public async getCollection<T extends DocumentData>(
     options: GetCollectionOptions,
   ): Promise<GetCollectionResult<T>> {
@@ -175,6 +203,12 @@ export class FirebaseFirestoreWeb
     await disableNetwork(firestore);
   }
 
+  public async useEmulator(options: UseEmulatorOptions): Promise<void> {
+    const firestore = getFirestore();
+    const port = options.port || 8080;
+    connectFirestoreEmulator(firestore, options.host, port);
+  }
+
   public async addDocumentSnapshotListener<
     T extends DocumentData = DocumentData,
   >(
@@ -195,6 +229,7 @@ export class FirebaseFirestoreWeb
         };
         callback(event, undefined);
       },
+      error => callback(null, error),
     );
     const id = Date.now().toString();
     this.unsubscribesMap.set(id, unsubscribe);
@@ -211,16 +246,49 @@ export class FirebaseFirestoreWeb
       options,
       'collection',
     );
-    const unsubscribe = onSnapshot(collectionQuery, snapshot => {
-      const event: AddCollectionSnapshotListenerCallbackEvent<T> = {
-        snapshots: snapshot.docs.map(documentSnapshot => ({
-          id: documentSnapshot.id,
-          path: documentSnapshot.ref.path,
-          data: documentSnapshot.data() as T,
-        })),
-      };
-      callback(event, undefined);
-    });
+    const unsubscribe = onSnapshot(
+      collectionQuery,
+      snapshot => {
+        const event: AddCollectionSnapshotListenerCallbackEvent<T> = {
+          snapshots: snapshot.docs.map(documentSnapshot => ({
+            id: documentSnapshot.id,
+            path: documentSnapshot.ref.path,
+            data: documentSnapshot.data() as T,
+          })),
+        };
+        callback(event, undefined);
+      },
+      error => callback(null, error),
+    );
+    const id = Date.now().toString();
+    this.unsubscribesMap.set(id, unsubscribe);
+    return id;
+  }
+
+  public async addCollectionGroupSnapshotListener<
+    T extends DocumentData = DocumentData,
+  >(
+    options: AddCollectionGroupSnapshotListenerOptions,
+    callback: AddCollectionGroupSnapshotListenerCallback<T>,
+  ): Promise<string> {
+    const collectionQuery = await this.buildCollectionQuery(
+      options,
+      'collectionGroup',
+    );
+    const unsubscribe = onSnapshot(
+      collectionQuery,
+      snapshot => {
+        const event: AddCollectionSnapshotListenerCallbackEvent<T> = {
+          snapshots: snapshot.docs.map(documentSnapshot => ({
+            id: documentSnapshot.id,
+            path: documentSnapshot.ref.path,
+            data: documentSnapshot.data() as T,
+          })),
+        };
+        callback(event, undefined);
+      },
+      error => callback(null, error),
+    );
     const id = Date.now().toString();
     this.unsubscribesMap.set(id, unsubscribe);
     return id;

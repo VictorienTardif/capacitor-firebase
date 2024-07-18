@@ -27,7 +27,7 @@ No configuration required for this plugin.
 
 A working example can be found here: [robingenz/capacitor-firebase-plugin-demo](https://github.com/robingenz/capacitor-firebase-plugin-demo)
 
-## Starter Templates
+## Starter templates
 
 The following starter templates are available:
 
@@ -107,6 +107,13 @@ const updateMetadata = async () => {
     },
   });
 };
+
+const useEmulator = async () => {
+  await FirebaseStorage.useEmulator({
+    host: '10.0.2.2',
+    port: 9001,
+  });
+};
 ```
 
 ## API
@@ -119,6 +126,7 @@ const updateMetadata = async () => {
 * [`listFiles(...)`](#listfiles)
 * [`updateMetadata(...)`](#updatemetadata)
 * [`uploadFile(...)`](#uploadfile)
+* [`useEmulator(...)`](#useemulator)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -238,6 +246,33 @@ Upload a file.
 --------------------
 
 
+### useEmulator(...)
+
+```typescript
+useEmulator(options: UseEmulatorOptions) => Promise<void>
+```
+
+Instrument your app to talk to the Cloud Storage emulator.
+
+On Android, the cleartext traffic must be allowed. On the Capacitor configuration:
+```
+{
+  server: {
+    cleartext: true
+  }
+}
+```
+**The cleartext traffic is not intended for use in production.**
+
+| Param         | Type                                                              |
+| ------------- | ----------------------------------------------------------------- |
+| **`options`** | <code><a href="#useemulatoroptions">UseEmulatorOptions</a></code> |
+
+**Since:** 6.1.0
+
+--------------------
+
+
 ### Interfaces
 
 
@@ -264,17 +299,23 @@ Upload a file.
 
 #### GetMetadataResult
 
-| Prop                     | Type                | Description                                                                       | Since |
-| ------------------------ | ------------------- | --------------------------------------------------------------------------------- | ----- |
-| **`bucket`**             | <code>string</code> | The bucket this file is contained in.                                             | 5.3.0 |
-| **`createdAt`**          | <code>number</code> | The timestamp at which the file was created in milliseconds since the epoch.      | 5.3.0 |
-| **`generation`**         | <code>string</code> | The object's generation.                                                          | 5.3.0 |
-| **`md5Hash`**            | <code>string</code> | The md5 hash of the file.                                                         | 5.3.0 |
-| **`metadataGeneration`** | <code>string</code> | The object's metadata generation.                                                 | 5.3.0 |
-| **`name`**               | <code>string</code> | The short name of this file, which is the last component of the full path.        | 5.3.0 |
-| **`path`**               | <code>string</code> | The full path to the file, including the file name.                               | 5.3.0 |
-| **`size`**               | <code>number</code> | The size of the file in bytes.                                                    | 5.3.0 |
-| **`updatedAt`**          | <code>number</code> | The timestamp at which the file was last updated in milliseconds since the epoch. | 5.3.0 |
+| Prop                     | Type                                    | Description                                                                       | Since |
+| ------------------------ | --------------------------------------- | --------------------------------------------------------------------------------- | ----- |
+| **`bucket`**             | <code>string</code>                     | The bucket this file is contained in.                                             | 5.3.0 |
+| **`createdAt`**          | <code>number</code>                     | The timestamp at which the file was created in milliseconds since the epoch.      | 5.3.0 |
+| **`generation`**         | <code>string</code>                     | The object's generation.                                                          | 5.3.0 |
+| **`md5Hash`**            | <code>string</code>                     | The md5 hash of the file.                                                         | 5.3.0 |
+| **`metadataGeneration`** | <code>string</code>                     | The object's metadata generation.                                                 | 5.3.0 |
+| **`name`**               | <code>string</code>                     | The short name of this file, which is the last component of the full path.        | 5.3.0 |
+| **`path`**               | <code>string</code>                     | The full path to the file, including the file name.                               | 5.3.0 |
+| **`size`**               | <code>number</code>                     | The size of the file in bytes.                                                    | 5.3.0 |
+| **`updatedAt`**          | <code>number</code>                     | The timestamp at which the file was last updated in milliseconds since the epoch. | 5.3.0 |
+| **`cacheControl`**       | <code>string</code>                     | Served as the `Cache-Control` header on object download.                          | 6.1.0 |
+| **`contentDisposition`** | <code>string</code>                     | Served as the `Content-Disposition` header on object download.                    | 6.1.0 |
+| **`contentEncoding`**    | <code>string</code>                     | Served as the `Content-Encoding` header on object download.                       | 6.1.0 |
+| **`contentLanguage`**    | <code>string</code>                     | Served as the `Content-Language` header on object download.                       | 6.1.0 |
+| **`contentType`**        | <code>string</code>                     | Served as the `Content-Type` header on object download.                           | 6.1.0 |
+| **`customMetadata`**     | <code>{ [key: string]: string; }</code> | Additional user-defined custom metadata.                                          | 6.1.0 |
 
 
 #### GetMetadataOptions
@@ -355,6 +396,14 @@ Upload a file.
 | **`bytesTransferred`** | <code>number</code>  | The number of bytes that have been transferred. Only available for Android and Web. | 5.3.0 |
 | **`totalBytes`**       | <code>number</code>  | The total number of bytes to be transferred. Only available for Android and Web.    | 5.3.0 |
 | **`completed`**        | <code>boolean</code> | Whether the upload is completed or not.                                             | 5.3.0 |
+
+
+#### UseEmulatorOptions
+
+| Prop       | Type                | Description                                                                                                                                                                     | Default           | Since |
+| ---------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----- |
+| **`host`** | <code>string</code> | The emulator host without any port or scheme. Note when using a Android Emulator device: 10.0.2.2 is the special IP address to connect to the 'localhost' of the host computer. |                   | 6.1.0 |
+| **`port`** | <code>number</code> | The emulator port.                                                                                                                                                              | <code>9199</code> | 6.1.0 |
 
 
 ### Type Aliases

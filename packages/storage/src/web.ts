@@ -6,6 +6,7 @@ import type {
   UploadTaskSnapshot,
 } from 'firebase/storage';
 import {
+  connectStorageEmulator,
   deleteObject,
   getDownloadURL,
   getMetadata,
@@ -29,6 +30,7 @@ import type {
   UploadFileCallback,
   UploadFileCallbackEvent,
   UploadFileOptions,
+  UseEmulatorOptions,
 } from './definitions';
 
 export class FirebaseStorageWeb
@@ -67,6 +69,12 @@ export class FirebaseStorageWeb
       path: metadata.fullPath,
       size: metadata.size,
       updatedAt: new Date(metadata.updated).getTime(),
+      cacheControl: metadata.cacheControl,
+      contentDisposition: metadata.contentDisposition,
+      contentEncoding: metadata.contentEncoding,
+      contentLanguage: metadata.contentLanguage,
+      contentType: metadata.contentType,
+      customMetadata: metadata.customMetadata,
     };
     if (metadata.md5Hash) {
       result.md5Hash = metadata.md5Hash;
@@ -145,6 +153,12 @@ export class FirebaseStorageWeb
       },
     });
     return Date.now().toString();
+  }
+
+  public async useEmulator(options: UseEmulatorOptions): Promise<void> {
+    const storage = getStorage();
+    const port = options.port || 9199;
+    connectStorageEmulator(storage, options.host, port);
   }
 
   private createUploadFileCallbackEvent(

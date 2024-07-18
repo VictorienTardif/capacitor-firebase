@@ -10,6 +10,8 @@ public class FirebaseFirestorePlugin: CAPPlugin {
     public let tag = "FirebaseFirestore"
     public let errorReferenceMissing = "reference must be provided."
     public let errorDataMissing = "data must be provided."
+    public let errorOperationsMissing = "operations must be provided."
+    public let errorHostMissing = "host must be provided."
     public let errorCallbackIdMissing = "callbackId must be provided."
     private var implementation: FirebaseFirestore?
     private var pluginCallMap: [String: CAPPluginCall] = [:]
@@ -125,6 +127,24 @@ public class FirebaseFirestorePlugin: CAPPlugin {
         })
     }
 
+    @objc func writeBatch(_ call: CAPPluginCall) {
+        guard let operations = call.getArray("operations", JSObject.self) else {
+            call.reject(errorOperationsMissing)
+            return
+        }
+
+        let options = WriteBatchOptions(operations: operations)
+
+        implementation?.writeBatch(options, completion: { error in
+            if let error = error {
+                CAPLog.print("[", self.tag, "] ", error)
+                call.reject(error.localizedDescription)
+                return
+            }
+            call.resolve()
+        })
+    }
+
     @objc func getCollection(_ call: CAPPluginCall) {
         guard let reference = call.getString("reference") else {
             call.reject(errorReferenceMissing)
@@ -202,6 +222,17 @@ public class FirebaseFirestorePlugin: CAPPlugin {
         })
     }
 
+    @objc func useEmulator(_ call: CAPPluginCall) {
+        guard let host = call.getString("host") else {
+            call.reject(errorHostMissing)
+            return
+        }
+        let port = call.getInt("port") ?? 8080
+
+        implementation?.useEmulator(host, port)
+        call.resolve()
+    }
+
     @objc func addDocumentSnapshotListener(_ call: CAPPluginCall) {
         call.keepAlive = true
 
@@ -250,6 +281,41 @@ public class FirebaseFirestorePlugin: CAPPlugin {
 
         do {
             implementation?.addCollectionSnapshotListener(options, completion: { result, error in
+                if let error = error {
+                    CAPLog.print("[", self.tag, "] ", error)
+                    call.reject(error.localizedDescription)
+                    return
+                }
+                if let result = result?.toJSObject() as? JSObject {
+                    call.resolve(result)
+                }
+            })
+        } catch {
+            CAPLog.print("[", self.tag, "] ", error)
+            call.reject(error.localizedDescription)
+        }
+    }
+
+    @objc func addCollectionGroupSnapshotListener(_ call: CAPPluginCall) {
+        call.keepAlive = true
+
+        guard let reference = call.getString("reference") else {
+            call.reject(errorReferenceMissing)
+            return
+        }
+        let compositeFilter = call.getObject("compositeFilter")
+        let queryConstraints = call.getArray("queryConstraints", JSObject.self)
+        guard let callbackId = call.callbackId else {
+            call.reject(errorCallbackIdMissing)
+            return
+        }
+
+        self.pluginCallMap[callbackId] = call
+
+        let options = AddCollectionGroupSnapshotListenerOptions(reference: reference, compositeFilter: compositeFilter, queryConstraints: queryConstraints, callbackId: callbackId)
+
+        do {
+            implementation?.addCollectionGroupSnapshotListener(options, completion: { result, error in
                 if let error = error {
                     CAPLog.print("[", self.tag, "] ", error)
                     call.reject(error.localizedDescription)

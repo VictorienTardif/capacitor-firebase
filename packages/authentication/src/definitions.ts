@@ -93,6 +93,14 @@ export interface FirebaseAuthenticationPlugin {
    */
   getCurrentUser(): Promise<GetCurrentUserResult>;
   /**
+   * Returns the `SignInResult` if your app launched a web sign-in flow and the OS cleans up the app while in the background.
+   *
+   * Only available for Android.
+   *
+   * @since 6.0.0
+   */
+  getPendingAuthResult(): Promise<SignInResult>;
+  /**
    * Fetches the Firebase Auth ID Token for the currently signed-in user.
    *
    * @since 0.1.0
@@ -200,6 +208,14 @@ export interface FirebaseAuthenticationPlugin {
    */
   linkWithMicrosoft(options?: LinkWithOAuthOptions): Promise<LinkResult>;
   /**
+   * Links the user account with an OpenID Connect provider.
+   *
+   * @since 6.1.0
+   */
+  linkWithOpenIdConnect(
+    options: LinkWithOpenIdConnectOptions,
+  ): Promise<LinkResult>;
+  /**
    * Links the user account with Phone Number authentication provider.
    *
    * The user must be logged in on the native layer.
@@ -248,11 +264,17 @@ export interface FirebaseAuthenticationPlugin {
    */
   reload(): Promise<void>;
   /**
+   * Revokes the given access token. Currently only supports Apple OAuth access tokens.
+   *
+   * @since 6.1.0
+   */
+  revokeAccessToken(options: RevokeAccessTokenOptions): Promise<void>;
+  /**
    * Sends a verification email to the currently signed in user.
    *
    * @since 0.2.2
    */
-  sendEmailVerification(): Promise<void>;
+  sendEmailVerification(options?: SendEmailVerificationOptions): Promise<void>;
   /**
    * Sends a password reset email.
    *
@@ -360,6 +382,14 @@ export interface FirebaseAuthenticationPlugin {
    * @since 0.1.0
    */
   signInWithMicrosoft(options?: SignInWithOAuthOptions): Promise<SignInResult>;
+  /**
+   * Starts the OpenID Connect sign-in flow.
+   *
+   * @since 6.1.0
+   */
+  signInWithOpenIdConnect(
+    options: SignInWithOpenIdConnectOptions,
+  ): Promise<SignInResult>;
   /**
    * Starts the sign-in flow using a phone number.
    *
@@ -642,6 +672,30 @@ export interface GetTenantIdResult {
 }
 
 /**
+ * @since 6.1.0
+ */
+export interface RevokeAccessTokenOptions {
+  /**
+   * The access token to revoke.
+   *
+   * @since 6.1.0
+   */
+  token: string;
+}
+
+/**
+ * @since 6.1.0
+ */
+export interface SendEmailVerificationOptions {
+  /**
+   * Structure that contains the required continue/state URL with optional Android and iOS bundle identifiers.
+   *
+   * @since 6.1.0
+   */
+  actionCodeSettings?: ActionCodeSettings;
+}
+
+/**
  * @since 0.2.2
  */
 export interface SendPasswordResetEmailOptions {
@@ -649,6 +703,12 @@ export interface SendPasswordResetEmailOptions {
    * @since 0.2.2
    */
   email: string;
+  /**
+   * Structure that contains the required continue/state URL with optional Android and iOS bundle identifiers.
+   *
+   * @since 6.1.0
+   */
+  actionCodeSettings?: ActionCodeSettings;
 }
 
 /**
@@ -807,6 +867,11 @@ export interface LinkWithEmailLinkOptions {
 }
 
 /**
+ * @since 6.1.0
+ */
+export type LinkWithOpenIdConnectOptions = SignInWithOpenIdConnectOptions;
+
+/**
  * @since 1.1.0
  */
 export type LinkWithPhoneNumberOptions = SignInWithPhoneNumberOptions;
@@ -894,6 +959,19 @@ export interface SignInCustomParameter {
    * @since 0.1.0
    */
   value: string;
+}
+
+/**
+ * @since 6.1.0
+ */
+export interface SignInWithOpenIdConnectOptions extends SignInWithOAuthOptions {
+  /**
+   * The OpenID Connect provider ID.
+   *
+   * @since 6.1.0
+   * @example oidc.example-provider
+   */
+  providerId: string;
 }
 
 /**

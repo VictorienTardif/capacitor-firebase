@@ -27,7 +27,7 @@ No configuration required for this plugin.
 
 A working example can be found here: [robingenz/capacitor-firebase-plugin-demo](https://github.com/robingenz/capacitor-firebase-plugin-demo)
 
-## Starter Templates
+## Starter templates
 
 The following starter templates are available:
 
@@ -114,12 +114,48 @@ const getCollection = async () => {
   return snapshots;
 };
 
+const getCollectionGroup = async () => {
+  const { snapshots } = await FirebaseFirestore.getCollectionGroup({
+    reference: 'users',
+    compositeFilter: {
+      type: 'and',
+      queryConstraints: [
+        {
+          type: 'where',
+          fieldPath: 'born',
+          opStr: '==',
+          value: 1912,
+        },
+      ],
+    },
+    queryConstraints: [
+      {
+        type: 'orderBy',
+        fieldPath: 'born',
+        directionStr: 'desc',
+      },
+      {
+        type: 'limit',
+        limit: 10,
+      },
+    ],
+  });
+  return snapshots;
+};
+
 const enableNetwork = async () => {
   await FirebaseFirestore.enableNetwork();
 };
 
 const disableNetwork = async () => {
   await FirebaseFirestore.disableNetwork();
+};
+
+const useEmulator = async () => {
+  await FirebaseFirestore.useEmulator({
+    host: '10.0.2.2',
+    port: 9001,
+  });
 };
 
 const addDocumentSnapshotListener = async () => {
@@ -176,6 +212,44 @@ const addCollectionSnapshotListener = async () => {
   return callbackId;
 };
 
+const addCollectionGroupSnapshotListener = async () => {
+  const callbackId = await FirebaseFirestore.addCollectionGroupSnapshotListener(
+    {
+      reference: 'users',
+      compositeFilter: {
+        type: 'and',
+        queryConstraints: [
+          {
+            type: 'where',
+            fieldPath: 'born',
+            opStr: '==',
+            value: 1912,
+          },
+        ],
+      },
+      queryConstraints: [
+        {
+          type: 'orderBy',
+          fieldPath: 'born',
+          directionStr: 'desc',
+        },
+        {
+          type: 'limit',
+          limit: 10,
+        },
+      ],
+    },
+    (event, error) => {
+      if (error) {
+        console.error(error);
+      } else {
+        console.log(event);
+      }
+    }
+  );
+  return callbackId;
+};
+
 const removeSnapshotListener = async (callbackId: string) => {
   await FirebaseFirestore.removeSnapshotListener({
     callbackId,
@@ -196,13 +270,16 @@ const removeAllListeners = async () => {
 * [`getDocument(...)`](#getdocument)
 * [`updateDocument(...)`](#updatedocument)
 * [`deleteDocument(...)`](#deletedocument)
+* [`writeBatch(...)`](#writebatch)
 * [`getCollection(...)`](#getcollection)
 * [`getCollectionGroup(...)`](#getcollectiongroup)
 * [`clearPersistence()`](#clearpersistence)
 * [`enableNetwork()`](#enablenetwork)
 * [`disableNetwork()`](#disablenetwork)
+* [`useEmulator(...)`](#useemulator)
 * [`addDocumentSnapshotListener(...)`](#adddocumentsnapshotlistener)
 * [`addCollectionSnapshotListener(...)`](#addcollectionsnapshotlistener)
+* [`addCollectionGroupSnapshotListener(...)`](#addcollectiongroupsnapshotlistener)
 * [`removeSnapshotListener(...)`](#removesnapshotlistener)
 * [`removeAllListeners()`](#removealllisteners)
 * [Interfaces](#interfaces)
@@ -303,6 +380,23 @@ Deletes the document referred to by the specified reference.
 --------------------
 
 
+### writeBatch(...)
+
+```typescript
+writeBatch(options: WriteBatchOptions) => Promise<void>
+```
+
+Execute multiple write operations as a single batch.
+
+| Param         | Type                                                            |
+| ------------- | --------------------------------------------------------------- |
+| **`options`** | <code><a href="#writebatchoptions">WriteBatchOptions</a></code> |
+
+**Since:** 6.1.0
+
+--------------------
+
+
 ### getCollection(...)
 
 ```typescript
@@ -380,6 +474,23 @@ Disables use of the network.
 --------------------
 
 
+### useEmulator(...)
+
+```typescript
+useEmulator(options: UseEmulatorOptions) => Promise<void>
+```
+
+Instrument your app to talk to the Firestore emulator.
+
+| Param         | Type                                                              |
+| ------------- | ----------------------------------------------------------------- |
+| **`options`** | <code><a href="#useemulatoroptions">UseEmulatorOptions</a></code> |
+
+**Since:** 6.1.0
+
+--------------------
+
+
 ### addDocumentSnapshotListener(...)
 
 ```typescript
@@ -416,6 +527,26 @@ Adds a listener for collection snapshot events.
 **Returns:** <code>Promise&lt;string&gt;</code>
 
 **Since:** 5.2.0
+
+--------------------
+
+
+### addCollectionGroupSnapshotListener(...)
+
+```typescript
+addCollectionGroupSnapshotListener<T extends DocumentData = DocumentData>(options: AddCollectionGroupSnapshotListenerOptions, callback: AddCollectionGroupSnapshotListenerCallback<T>) => Promise<CallbackId>
+```
+
+Adds a listener for collection group snapshot events.
+
+| Param          | Type                                                                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **`options`**  | <code><a href="#addcollectiongroupsnapshotlisteneroptions">AddCollectionGroupSnapshotListenerOptions</a></code>            |
+| **`callback`** | <code><a href="#addcollectiongroupsnapshotlistenercallback">AddCollectionGroupSnapshotListenerCallback</a>&lt;T&gt;</code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+**Since:** 6.1.0
 
 --------------------
 
@@ -526,6 +657,22 @@ Remove all listeners for this plugin.
 | **`reference`** | <code>string</code> | The reference as a string, with path components separated by a forward slash (`/`). | 5.2.0 |
 
 
+#### WriteBatchOptions
+
+| Prop             | Type                               | Description                             | Since |
+| ---------------- | ---------------------------------- | --------------------------------------- | ----- |
+| **`operations`** | <code>WriteBatchOperation[]</code> | The operations to execute in the batch. | 6.1.0 |
+
+
+#### WriteBatchOperation
+
+| Prop            | Type                                                  | Description                                                                         | Since |
+| --------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- | ----- |
+| **`type`**      | <code>'set' \| 'update' \| 'delete'</code>            | The type of operation.                                                              | 6.1.0 |
+| **`reference`** | <code>string</code>                                   | The reference as a string, with path components separated by a forward slash (`/`). | 6.1.0 |
+| **`data`**      | <code><a href="#documentdata">DocumentData</a></code> | An object containing the data for the new document.                                 | 6.1.0 |
+
+
 #### GetCollectionResult
 
 | Prop            | Type                                                                     | Description                      | Since |
@@ -609,6 +756,14 @@ Remove all listeners for this plugin.
 | **`queryConstraints`** | <code>QueryNonFilterConstraint[]</code>                                                   | Narrow or order the set of documents to retrieve, but do not explicitly filter for document fields. | 5.2.0 |
 
 
+#### UseEmulatorOptions
+
+| Prop       | Type                | Description                                                                                                                                                                     | Default           | Since |
+| ---------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----- |
+| **`host`** | <code>string</code> | The emulator host without any port or scheme. Note when using a Android Emulator device: 10.0.2.2 is the special IP address to connect to the 'localhost' of the host computer. |                   | 6.1.0 |
+| **`port`** | <code>number</code> | The emulator port.                                                                                                                                                              | <code>8080</code> | 6.1.0 |
+
+
 #### AddDocumentSnapshotListenerOptions
 
 | Prop            | Type                | Description                                                                         | Since |
@@ -623,6 +778,15 @@ Remove all listeners for this plugin.
 | **`reference`**        | <code>string</code>                                                                       | The reference as a string, with path components separated by a forward slash (`/`).                 | 5.2.0 |
 | **`compositeFilter`**  | <code><a href="#querycompositefilterconstraint">QueryCompositeFilterConstraint</a></code> | The filter to apply.                                                                                | 5.2.0 |
 | **`queryConstraints`** | <code>QueryNonFilterConstraint[]</code>                                                   | Narrow or order the set of documents to retrieve, but do not explicitly filter for document fields. | 5.2.0 |
+
+
+#### AddCollectionGroupSnapshotListenerOptions
+
+| Prop                   | Type                                                                                      | Description                                                                                         | Since |
+| ---------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----- |
+| **`reference`**        | <code>string</code>                                                                       | The reference as a string, with path components separated by a forward slash (`/`).                 | 6.1.0 |
+| **`compositeFilter`**  | <code><a href="#querycompositefilterconstraint">QueryCompositeFilterConstraint</a></code> | The filter to apply.                                                                                | 6.1.0 |
+| **`queryConstraints`** | <code>QueryNonFilterConstraint[]</code>                                                   | Narrow or order the set of documents to retrieve, but do not explicitly filter for document fields. | 6.1.0 |
 
 
 #### RemoveSnapshotListenerOptions
@@ -678,6 +842,16 @@ Remove all listeners for this plugin.
 #### AddCollectionSnapshotListenerCallbackEvent
 
 <code><a href="#getcollectionresult">GetCollectionResult</a>&lt;T&gt;</code>
+
+
+#### AddCollectionGroupSnapshotListenerCallback
+
+<code>(event: <a href="#addcollectiongroupsnapshotlistenercallbackevent">AddCollectionGroupSnapshotListenerCallbackEvent</a>&lt;T&gt; | null, error: any): void</code>
+
+
+#### AddCollectionGroupSnapshotListenerCallbackEvent
+
+<code><a href="#getcollectiongroupresult">GetCollectionGroupResult</a>&lt;T&gt;</code>
 
 </docgen-api>
 

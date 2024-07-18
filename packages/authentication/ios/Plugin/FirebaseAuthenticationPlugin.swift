@@ -25,6 +25,7 @@ public class FirebaseAuthenticationPlugin: CAPPlugin {
     public let errorVerificationIdMissing = "verificationId must be provided."
     public let errorVerificationCodeMissing = "verificationCode must be provided."
     public let errorHostMissing = "host must be provided."
+    public let errorTokenMissing = "token must be provided."
     public let errorCustomTokenSkipNativeAuth =
         "signInWithCustomToken cannot be used in combination with skipNativeAuth."
     public let errorEmailLinkSignInSkipNativeAuth =
@@ -171,6 +172,10 @@ public class FirebaseAuthenticationPlugin: CAPPlugin {
         })
     }
 
+    @objc func getPendingAuthResult(_ call: CAPPluginCall) {
+        call.reject("Not available on iOS.")
+    }
+
     @objc func getRedirectResult(_ call: CAPPluginCall) {
         call.reject("Not available on iOS.")
     }
@@ -226,6 +231,15 @@ public class FirebaseAuthenticationPlugin: CAPPlugin {
         implementation?.linkWithMicrosoft(call)
     }
 
+    @objc func linkWithOpenIdConnect(_ call: CAPPluginCall) {
+        guard let providerId = call.getString("providerId") else {
+            call.reject(errorProviderIdMissing)
+            return
+        }
+
+        implementation?.linkWithOpenIdConnect(call, providerId: providerId)
+    }
+
     @objc func linkWithPhoneNumber(_ call: CAPPluginCall) {
         guard let phoneNumber = call.getString("phoneNumber") else {
             call.reject(errorPhoneNumberMissing)
@@ -266,13 +280,31 @@ public class FirebaseAuthenticationPlugin: CAPPlugin {
         })
     }
 
-    @objc func sendEmailVerification(_ call: CAPPluginCall) {
-        guard let user = implementation?.getCurrentUser() else {
-            call.reject(errorNoUserSignedIn)
+    @objc func revokeAccessToken(_ call: CAPPluginCall) {
+        guard let token = call.getString("token") else {
+            call.reject(errorTokenMissing)
             return
         }
 
-        implementation?.sendEmailVerification(user: user, completion: { error in
+        let options = RevokeAccessTokenOptions(token: token)
+
+        implementation?.revokeAccessToken(options, completion: { error in
+            if let error = error {
+                CAPLog.print("[", self.tag, "] ", error)
+                let code = FirebaseAuthenticationHelper.createErrorCode(error: error)
+                call.reject(error.localizedDescription, code)
+                return
+            }
+            call.resolve()
+        })
+    }
+
+    @objc func sendEmailVerification(_ call: CAPPluginCall) {
+        let actionCodeSettings = call.getObject("actionCodeSettings")
+
+        let options = SendEmailVerificationOptions(actionCodeSettings: actionCodeSettings)
+
+        implementation?.sendEmailVerification(options, completion: { error in
             if let error = error {
                 CAPLog.print("[", self.tag, "] ", error)
                 let code = FirebaseAuthenticationHelper.createErrorCode(error: error)
@@ -288,8 +320,11 @@ public class FirebaseAuthenticationPlugin: CAPPlugin {
             call.reject(errorEmailMissing)
             return
         }
+        let actionCodeSettings = call.getObject("actionCodeSettings")
 
-        implementation?.sendPasswordResetEmail(email: email, completion: { error in
+        let options = SendPasswordResetEmailOptions(email: email, actionCodeSettings: actionCodeSettings)
+
+        implementation?.sendPasswordResetEmail(options, completion: { error in
             if let error = error {
                 CAPLog.print("[", self.tag, "] ", error)
                 let code = FirebaseAuthenticationHelper.createErrorCode(error: error)
@@ -309,34 +344,9 @@ public class FirebaseAuthenticationPlugin: CAPPlugin {
             call.reject(errorActionCodeSettingsMissing)
             return
         }
-
-        let actionCodeSettings = ActionCodeSettings()
-        if let url = settings["url"] as? String {
-            actionCodeSettings.url = URL(string: url)
-        }
-
-        if let handleCodeInApp = settings["handleCodeInApp"] as? Bool {
-            actionCodeSettings.handleCodeInApp = handleCodeInApp
-        }
-
-        if let iOS = settings["iOS"] as? JSObject {
-            if let bundleId = iOS["bundleId"] as? String {
-                actionCodeSettings.setIOSBundleID(bundleId)
-            }
-        }
-
-        if let android = settings["android"] as? JSObject {
-            if let packageName = android["packageName"] as? String {
-                actionCodeSettings.setAndroidPackageName(
-                    packageName,
-                    installIfNotAvailable: android["installApp"] as? Bool ?? false,
-                    minimumVersion: android["minimumVersion"] as? String
-                )
-            }
-        }
-
-        if let dynamicLinkDomain = settings["dynamicLinkDomain"] as? String {
-            actionCodeSettings.dynamicLinkDomain = dynamicLinkDomain
+        guard let actionCodeSettings = FirebaseAuthenticationHelper.createActionCodeSettings(settings) else {
+            call.reject(errorActionCodeSettingsMissing)
+            return
         }
 
         implementation?.sendSignInLinkToEmail(email: email, actionCodeSettings: actionCodeSettings, completion: { error in
@@ -409,6 +419,15 @@ public class FirebaseAuthenticationPlugin: CAPPlugin {
 
     @objc func signInWithMicrosoft(_ call: CAPPluginCall) {
         implementation?.signInWithMicrosoft(call)
+    }
+
+    @objc func signInWithOpenIdConnect(_ call: CAPPluginCall) {
+        guard let providerId = call.getString("providerId") else {
+            call.reject(errorProviderIdMissing)
+            return
+        }
+
+        implementation?.signInWithOpenIdConnect(call, providerId: providerId)
     }
 
     @objc func signInWithPhoneNumber(_ call: CAPPluginCall) {

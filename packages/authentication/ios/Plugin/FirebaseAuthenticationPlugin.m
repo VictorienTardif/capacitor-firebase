@@ -12,6 +12,7 @@ CAP_PLUGIN(FirebaseAuthenticationPlugin, "FirebaseAuthentication",
            CAP_PLUGIN_METHOD(fetchSignInMethodsForEmail, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(getCurrentUser, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(getIdToken, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(getPendingAuthResult, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(getRedirectResult, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(getTenantId, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(isSignInWithEmailLink, CAPPluginReturnPromise);
@@ -23,11 +24,13 @@ CAP_PLUGIN(FirebaseAuthenticationPlugin, "FirebaseAuthentication",
            CAP_PLUGIN_METHOD(linkWithGithub, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(linkWithGoogle, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(linkWithMicrosoft, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(linkWithOpenIdConnect, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(linkWithPhoneNumber, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(linkWithPlayGames, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(linkWithTwitter, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(linkWithYahoo, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(reload, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(revokeAccessToken, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(sendEmailVerification, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(sendPasswordResetEmail, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(sendSignInLinkToEmail, CAPPluginReturnPromise);
@@ -47,6 +50,7 @@ CAP_PLUGIN(FirebaseAuthenticationPlugin, "FirebaseAuthentication",
            CAP_PLUGIN_METHOD(signInWithPlayGames, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(signInWithTwitter, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(signInWithYahoo, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(signInWithOpenIdConnect, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(signInWithPhoneNumber, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(signOut, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(unlink, CAPPluginReturnPromise);

@@ -1,5 +1,6 @@
 package io.capawesome.capacitorjs.plugins.firebase.authentication;
 
+import static io.capawesome.capacitorjs.plugins.firebase.authentication.FirebaseAuthenticationPlugin.ERROR_NO_USER_SIGNED_IN;
 import static io.capawesome.capacitorjs.plugins.firebase.authentication.FirebaseAuthenticationPlugin.TAG;
 
 import android.content.Intent;
@@ -30,6 +31,9 @@ import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.SignInO
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.SignInResult;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.SignInWithPhoneNumberOptions;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.FetchSignInMethodsForEmailOptions;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.RevokeAccessTokenOptions;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.SendEmailVerificationOptions;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.SendPasswordResetEmailOptions;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.results.FetchSignInMethodsForEmailResult;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.handlers.AppleAuthProviderHandler;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.handlers.FacebookAuthProviderHandler;
@@ -37,6 +41,8 @@ import io.capawesome.capacitorjs.plugins.firebase.authentication.handlers.Google
 import io.capawesome.capacitorjs.plugins.firebase.authentication.handlers.OAuthProviderHandler;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.handlers.PhoneAuthProviderHandler;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.handlers.PlayGamesAuthProviderHandler;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.EmptyResultCallback;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.NonEmptyResultCallback;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.Result;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.ResultCallback;
 import java.util.Arrays;
@@ -123,7 +129,7 @@ public class FirebaseAuthentication {
             );
     }
 
-    public void confirmVerificationCode(@NonNull ConfirmVerificationCodeOptions options, @NonNull ResultCallback callback) {
+    public void confirmVerificationCode(@NonNull ConfirmVerificationCodeOptions options, @NonNull NonEmptyResultCallback callback) {
         phoneAuthProviderHandler.confirmVerificationCode(options, callback);
     }
 
@@ -137,7 +143,7 @@ public class FirebaseAuthentication {
             );
     }
 
-    public void fetchSignInMethodsForEmail(FetchSignInMethodsForEmailOptions options, @NonNull final ResultCallback resultCallback) {
+    public void fetchSignInMethodsForEmail(FetchSignInMethodsForEmailOptions options, @NonNull final NonEmptyResultCallback callback) {
         String email = options.getEmail();
 
         getFirebaseAuthInstance()
@@ -147,10 +153,10 @@ public class FirebaseAuthentication {
                     if (task.isSuccessful()) {
                         List<String> signInMethods = task.getResult().getSignInMethods();
                         FetchSignInMethodsForEmailResult result = new FetchSignInMethodsForEmailResult(signInMethods);
-                        resultCallback.success(result);
+                        callback.success(result);
                     } else {
                         Exception exception = task.getException();
-                        resultCallback.error(exception);
+                        callback.error(exception);
                     }
                 }
             );
@@ -161,10 +167,10 @@ public class FirebaseAuthentication {
         return getFirebaseAuthInstance().getCurrentUser();
     }
 
-    public void getIdToken(Boolean forceRefresh, @NonNull final ResultCallback resultCallback) {
+    public void getIdToken(Boolean forceRefresh, @NonNull final NonEmptyResultCallback callback) {
         FirebaseUser user = getCurrentUser();
         if (user == null) {
-            resultCallback.error(new Exception(FirebaseAuthenticationPlugin.ERROR_NO_USER_SIGNED_IN));
+            callback.error(new Exception(ERROR_NO_USER_SIGNED_IN));
             return;
         }
         Task<GetTokenResult> tokenResultTask = user.getIdToken(forceRefresh);
@@ -173,13 +179,17 @@ public class FirebaseAuthentication {
                 if (task.isSuccessful()) {
                     String token = task.getResult().getToken();
                     GetIdTokenResult result = new GetIdTokenResult(token);
-                    resultCallback.success(result);
+                    callback.success(result);
                 } else {
                     Exception exception = task.getException();
-                    resultCallback.error(exception);
+                    callback.error(exception);
                 }
             }
         );
+    }
+
+    public void getPendingAuthResult(PluginCall call) {
+        oAuthProviderHandler.getPendingAuthResult(call);
     }
 
     @Nullable
@@ -203,7 +213,7 @@ public class FirebaseAuthentication {
         }
         FirebaseUser user = getCurrentUser();
         if (user == null) {
-            call.reject(FirebaseAuthenticationPlugin.ERROR_NO_USER_SIGNED_IN);
+            call.reject(ERROR_NO_USER_SIGNED_IN);
             return;
         }
 
@@ -238,7 +248,7 @@ public class FirebaseAuthentication {
         }
         FirebaseUser user = getCurrentUser();
         if (user == null) {
-            call.reject(FirebaseAuthenticationPlugin.ERROR_NO_USER_SIGNED_IN);
+            call.reject(ERROR_NO_USER_SIGNED_IN);
             return;
         }
 
@@ -281,6 +291,10 @@ public class FirebaseAuthentication {
         oAuthProviderHandler.link(call, ProviderId.MICROSOFT);
     }
 
+    public void linkWithOpenIdConnect(final PluginCall call, final String providerId) {
+        oAuthProviderHandler.link(call, providerId);
+    }
+
     public void linkWithPhoneNumber(@NonNull final LinkWithPhoneNumberOptions options) throws Exception {
         phoneAuthProviderHandler.link(options);
     }
@@ -307,24 +321,42 @@ public class FirebaseAuthentication {
             );
     }
 
-    public void sendEmailVerification(FirebaseUser user, @NonNull Runnable callback) {
-        user
-            .sendEmailVerification()
-            .addOnCompleteListener(
-                task -> {
-                    callback.run();
-                }
-            );
+    public void revokeAccessToken(@NonNull RevokeAccessTokenOptions options, @NonNull EmptyResultCallback callback) {
+        String token = options.getToken();
+
+        getFirebaseAuthInstance()
+            .revokeAccessToken(token)
+            .addOnSuccessListener(unused -> callback.success())
+            .addOnFailureListener(exception -> callback.error(exception));
     }
 
-    public void sendPasswordResetEmail(@NonNull String email, @NonNull Runnable callback) {
+    public void sendEmailVerification(@NonNull SendEmailVerificationOptions options, @NonNull EmptyResultCallback callback) {
+        ActionCodeSettings actionCodeSettings = options.getActionCodeSettings();
+
+        FirebaseUser user = getCurrentUser();
+        if (user == null) {
+            Exception exception = new Exception(ERROR_NO_USER_SIGNED_IN);
+            callback.error(exception);
+            return;
+        }
+
+        Task<Void> task = null;
+        if (actionCodeSettings == null) {
+            task = user.sendEmailVerification();
+        } else {
+            task = user.sendEmailVerification(actionCodeSettings);
+        }
+        task.addOnSuccessListener(unused -> callback.success()).addOnFailureListener(exception -> callback.error(exception));
+    }
+
+    public void sendPasswordResetEmail(@NonNull SendPasswordResetEmailOptions options, @NonNull EmptyResultCallback callback) {
+        String email = options.getEmail();
+        ActionCodeSettings actionCodeSettings = options.getActionCodeSettings();
+
         getFirebaseAuthInstance()
-            .sendPasswordResetEmail(email)
-            .addOnCompleteListener(
-                task -> {
-                    callback.run();
-                }
-            );
+            .sendPasswordResetEmail(email, actionCodeSettings)
+            .addOnSuccessListener(unused -> callback.success())
+            .addOnFailureListener(exception -> callback.error(exception));
     }
 
     public void sendSignInLinkToEmail(@NonNull String email, @NonNull ActionCodeSettings actionCodeSettings, @NonNull Runnable callback) {
@@ -460,6 +492,10 @@ public class FirebaseAuthentication {
 
     public void signInWithMicrosoft(final PluginCall call) {
         oAuthProviderHandler.signIn(call, ProviderId.MICROSOFT);
+    }
+
+    public void signInWithOpenIdConnect(final PluginCall call, final String providerId) {
+        oAuthProviderHandler.signIn(call, providerId);
     }
 
     public void signInWithPhoneNumber(final SignInWithPhoneNumberOptions options) throws Exception {
@@ -614,7 +650,11 @@ public class FirebaseAuthentication {
         }
     }
 
-    public void signInWithCredential(@NonNull SignInOptions options, @NonNull AuthCredential credential, @NonNull ResultCallback callback) {
+    public void signInWithCredential(
+        @NonNull SignInOptions options,
+        @NonNull AuthCredential credential,
+        @NonNull NonEmptyResultCallback callback
+    ) {
         boolean skipNativeAuth = options.getSkipNativeAuth();
         if (skipNativeAuth) {
             SignInResult result = new SignInResult(null, credential, null);
@@ -639,10 +679,10 @@ public class FirebaseAuthentication {
             );
     }
 
-    public void linkWithCredential(@NonNull AuthCredential credential, @NonNull ResultCallback callback) {
+    public void linkWithCredential(@NonNull AuthCredential credential, @NonNull NonEmptyResultCallback callback) {
         FirebaseUser user = getFirebaseAuthInstance().getCurrentUser();
         if (user == null) {
-            callback.error(new Exception(FirebaseAuthenticationPlugin.ERROR_NO_USER_SIGNED_IN));
+            callback.error(new Exception(ERROR_NO_USER_SIGNED_IN));
             return;
         }
         user
@@ -686,59 +726,76 @@ public class FirebaseAuthentication {
             call.resolve(signInResult);
             return;
         }
-        getFirebaseAuthInstance()
-            .signInWithCredential(credential)
-            .addOnCompleteListener(
-                plugin.getActivity(),
-                task -> {
-                    if (task.isSuccessful()) {
-                        final AuthResult authResult = task.getResult();
-                        handleSuccessfulSignIn(call, authResult, idToken, nonce, accessToken, serverAuthCode);
-                    } else {
-                        Exception exception = task.getException();
-                        Logger.error(TAG, exception.getMessage(), exception);
-                        String code = FirebaseAuthenticationHelper.createErrorCode(exception);
-                        call.reject(exception.getMessage(), code);
+        if (credential == null) {
+            handleSuccessfulSignIn(call);
+        } else {
+            getFirebaseAuthInstance()
+                .signInWithCredential(credential)
+                .addOnCompleteListener(
+                    plugin.getActivity(),
+                    task -> {
+                        if (task.isSuccessful()) {
+                            final AuthResult authResult = task.getResult();
+                            handleSuccessfulSignIn(call, authResult, idToken, nonce, accessToken, serverAuthCode);
+                        } else {
+                            Exception exception = task.getException();
+                            Logger.error(TAG, exception.getMessage(), exception);
+                            String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+                            call.reject(exception.getMessage(), code);
+                        }
                     }
-                }
-            );
+                );
+        }
     }
 
     public void handleSuccessfulSignIn(
         final PluginCall call,
-        final AuthResult authResult,
+        @Nullable AuthResult authResult,
         @Nullable String idToken,
         @Nullable String nonce,
         @Nullable String accessToken
     ) {
-        JSObject signInResult = FirebaseAuthenticationHelper.createSignInResult(
-            authResult.getUser(),
-            authResult.getCredential(),
-            idToken,
-            nonce,
-            accessToken,
-            authResult.getAdditionalUserInfo()
-        );
-        call.resolve(signInResult);
+        if (authResult == null) {
+            handleSuccessfulSignIn(call);
+        } else {
+            JSObject signInResult = FirebaseAuthenticationHelper.createSignInResult(
+                authResult.getUser(),
+                authResult.getCredential(),
+                idToken,
+                nonce,
+                accessToken,
+                authResult.getAdditionalUserInfo()
+            );
+            call.resolve(signInResult);
+        }
     }
 
     public void handleSuccessfulSignIn(
         final PluginCall call,
-        final AuthResult authResult,
+        @Nullable AuthResult authResult,
         @Nullable String idToken,
         @Nullable String nonce,
         @Nullable String accessToken,
         @Nullable String serverAuthCode
     ) {
-        JSObject signInResult = FirebaseAuthenticationHelper.createSignInResult(
-            authResult.getUser(),
-            authResult.getCredential(),
-            idToken,
-            nonce,
-            accessToken,
-            serverAuthCode,
-            authResult.getAdditionalUserInfo()
-        );
+        if (authResult == null) {
+            handleSuccessfulSignIn(call);
+        } else {
+            JSObject signInResult = FirebaseAuthenticationHelper.createSignInResult(
+                authResult.getUser(),
+                authResult.getCredential(),
+                idToken,
+                nonce,
+                accessToken,
+                serverAuthCode,
+                authResult.getAdditionalUserInfo()
+            );
+            call.resolve(signInResult);
+        }
+    }
+
+    public void handleSuccessfulSignIn(@NonNull final PluginCall call) {
+        JSObject signInResult = FirebaseAuthenticationHelper.createSignInResult(null, null, null, null, null, null);
         call.resolve(signInResult);
     }
 
@@ -761,44 +818,57 @@ public class FirebaseAuthentication {
     ) {
         FirebaseUser user = getFirebaseAuthInstance().getCurrentUser();
         if (user == null) {
-            call.reject(FirebaseAuthenticationPlugin.ERROR_NO_USER_SIGNED_IN);
+            call.reject(ERROR_NO_USER_SIGNED_IN);
             return;
         }
-        user
-            .linkWithCredential(credential)
-            .addOnCompleteListener(
-                plugin.getActivity(),
-                task -> {
-                    if (task.isSuccessful()) {
-                        final AuthResult authResult = task.getResult();
-                        handleSuccessfulLink(call, authResult, idToken, nonce, accessToken, serverAuthCode);
-                    } else {
-                        Exception exception = task.getException();
-                        Logger.error(TAG, exception.getMessage(), exception);
-                        String code = FirebaseAuthenticationHelper.createErrorCode(exception);
-                        call.reject(exception.getMessage(), code);
+        if (credential == null) {
+            handleSuccessfulLink(call);
+        } else {
+            user
+                .linkWithCredential(credential)
+                .addOnCompleteListener(
+                    plugin.getActivity(),
+                    task -> {
+                        if (task.isSuccessful()) {
+                            final AuthResult authResult = task.getResult();
+                            handleSuccessfulLink(call, authResult, idToken, nonce, accessToken, serverAuthCode);
+                        } else {
+                            Exception exception = task.getException();
+                            Logger.error(TAG, exception.getMessage(), exception);
+                            String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+                            call.reject(exception.getMessage(), code);
+                        }
                     }
-                }
-            );
+                );
+        }
     }
 
     public void handleSuccessfulLink(
         final PluginCall call,
-        final AuthResult authResult,
+        @Nullable AuthResult authResult,
         @Nullable String idToken,
         @Nullable String nonce,
         @Nullable String accessToken,
         @Nullable String serverAuthCode
     ) {
-        JSObject linkResult = FirebaseAuthenticationHelper.createSignInResult(
-            authResult.getUser(),
-            authResult.getCredential(),
-            idToken,
-            nonce,
-            accessToken,
-            serverAuthCode,
-            authResult.getAdditionalUserInfo()
-        );
+        if (authResult == null) {
+            handleSuccessfulLink(call);
+        } else {
+            JSObject linkResult = FirebaseAuthenticationHelper.createSignInResult(
+                authResult.getUser(),
+                authResult.getCredential(),
+                idToken,
+                nonce,
+                accessToken,
+                serverAuthCode,
+                authResult.getAdditionalUserInfo()
+            );
+            call.resolve(linkResult);
+        }
+    }
+
+    public void handleSuccessfulLink(final PluginCall call) {
+        JSObject linkResult = FirebaseAuthenticationHelper.createSignInResult(null, null, null, null, null, null);
         call.resolve(linkResult);
     }
 

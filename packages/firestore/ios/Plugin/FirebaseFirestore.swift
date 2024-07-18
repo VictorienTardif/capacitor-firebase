@@ -81,6 +81,37 @@ import FirebaseFirestore
         }
     }
 
+    @objc public func writeBatch(_ options: WriteBatchOptions, completion: @escaping (Error?) -> Void) {
+        let operations = options.getOperations()
+
+        let batch = Firestore.firestore().batch()
+        for operation in operations {
+            let type = operation.getType()
+            let reference = operation.getReference()
+            let data = operation.getData()
+
+            let documentReference = Firestore.firestore().document(reference)
+            switch type {
+            case "set":
+                batch.setData(data, forDocument: documentReference)
+            case "update":
+                batch.updateData(data, forDocument: documentReference)
+            case "delete":
+                batch.deleteDocument(documentReference)
+            default:
+                break
+            }
+        }
+
+        batch.commit { error in
+            if let error = error {
+                completion(error)
+            } else {
+                completion(nil)
+            }
+        }
+    }
+
     @objc public func getCollection(_ options: GetCollectionOptions, completion: @escaping (Result?, Error?) -> Void) {
         let reference = options.getReference()
         let compositeFilter = options.getCompositeFilter()
@@ -157,6 +188,13 @@ import FirebaseFirestore
         }
     }
 
+    @objc func useEmulator(_ host: String, _ port: Int) {
+        let settings = Firestore.firestore().settings
+        settings.host = "\(host):\(port)"
+        settings.isSSLEnabled = false
+        Firestore.firestore().settings = settings
+    }
+
     @objc public func addDocumentSnapshotListener(_ options: AddDocumentSnapshotListenerOptions, completion: @escaping (Result?, Error?) -> Void) {
         let reference = options.getReference()
         let callbackId = options.getCallbackId()
@@ -198,6 +236,42 @@ import FirebaseFirestore
                         completion(nil, error)
                     } else {
                         let result = GetCollectionResult(querySnapshot!)
+                        completion(result, nil)
+                    }
+                }
+                self.listenerRegistrationMap[callbackId] = listenerRegistration
+            } catch {
+                completion(nil, error)
+            }
+        }
+    }
+
+    @objc public func addCollectionGroupSnapshotListener(_ options: AddCollectionGroupSnapshotListenerOptions, completion: @escaping (Result?, Error?) -> Void) {
+        let reference = options.getReference()
+        let compositeFilter = options.getCompositeFilter()
+        let queryConstraints = options.getQueryConstraints()
+        let callbackId = options.getCallbackId()
+
+        Task {
+            do {
+                let collectionReference = Firestore.firestore().collectionGroup(reference)
+                var query = collectionReference as Query
+                if let compositeFilter = compositeFilter {
+                    if let filter = compositeFilter.toFilter() {
+                        query = query.whereFilter(filter)
+                    }
+                }
+                if !queryConstraints.isEmpty {
+                    for queryConstraint in queryConstraints {
+                        query = try await queryConstraint.toQuery(query: query)
+                    }
+                }
+
+                let listenerRegistration = query.addSnapshotListener { querySnapshot, error in
+                    if let error = error {
+                        completion(nil, error)
+                    } else {
+                        let result = GetCollectionGroupResult(querySnapshot!)
                         completion(result, nil)
                     }
                 }

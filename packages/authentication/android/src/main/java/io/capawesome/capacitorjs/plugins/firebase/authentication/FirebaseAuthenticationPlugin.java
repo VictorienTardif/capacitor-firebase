@@ -13,16 +13,18 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.firebase.auth.ActionCodeSettings;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.auth.PhoneAuthCredential;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.ConfirmVerificationCodeOptions;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.LinkWithPhoneNumberOptions;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.PhoneVerificationCompletedEvent;
-import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.SignInResult;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.SignInWithPhoneNumberOptions;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.FetchSignInMethodsForEmailOptions;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.RevokeAccessTokenOptions;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.SendEmailVerificationOptions;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.classes.options.SendPasswordResetEmailOptions;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.handlers.FacebookAuthProviderHandler;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.EmptyResultCallback;
+import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.NonEmptyResultCallback;
 import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.Result;
-import io.capawesome.capacitorjs.plugins.firebase.authentication.interfaces.ResultCallback;
 import org.json.JSONObject;
 
 @CapacitorPlugin(name = "FirebaseAuthentication", requestCodes = { FacebookAuthProviderHandler.RC_FACEBOOK_AUTH })
@@ -34,6 +36,7 @@ public class FirebaseAuthenticationPlugin extends Plugin {
     public static final String PHONE_CODE_SENT_EVENT = "phoneCodeSent";
     public static final String ERROR_PROVIDER_ID_MISSING = "providerId must be provided.";
     public static final String ERROR_NO_USER_SIGNED_IN = "No user is signed in.";
+    public static final String ERROR_TOKEN_MISSING = "token must be provided.";
     public static final String ERROR_OOB_CODE_MISSING = "oobCode must be provided.";
     public static final String ERROR_TENANT_ID_MISSING = "tenantId must be provided.";
     public static final String ERROR_EMAIL_MISSING = "email must be provided.";
@@ -118,7 +121,7 @@ public class FirebaseAuthenticationPlugin extends Plugin {
                 return;
             }
             ConfirmVerificationCodeOptions options = new ConfirmVerificationCodeOptions(verificationId, verificationCode);
-            ResultCallback callback = new ResultCallback() {
+            NonEmptyResultCallback callback = new NonEmptyResultCallback() {
                 @Override
                 public void success(Result result) {
                     call.resolve(result.toJSObject());
@@ -177,23 +180,21 @@ public class FirebaseAuthenticationPlugin extends Plugin {
             }
 
             FetchSignInMethodsForEmailOptions options = new FetchSignInMethodsForEmailOptions(email);
-
-            implementation.fetchSignInMethodsForEmail(
-                options,
-                new ResultCallback() {
-                    @Override
-                    public void success(Result result) {
-                        call.resolve(result.toJSObject());
-                    }
-
-                    @Override
-                    public void error(Exception exception) {
-                        Logger.error(TAG, exception.getMessage(), exception);
-                        String code = FirebaseAuthenticationHelper.createErrorCode(exception);
-                        call.reject(exception.getMessage(), code);
-                    }
+            NonEmptyResultCallback callback = new NonEmptyResultCallback() {
+                @Override
+                public void success(Result result) {
+                    call.resolve(result.toJSObject());
                 }
-            );
+
+                @Override
+                public void error(Exception exception) {
+                    Logger.error(TAG, exception.getMessage(), exception);
+                    String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+                    call.reject(exception.getMessage(), code);
+                }
+            };
+
+            implementation.fetchSignInMethodsForEmail(options, callback);
         } catch (Exception exception) {
             Logger.error(TAG, exception.getMessage(), exception);
             String code = FirebaseAuthenticationHelper.createErrorCode(exception);
@@ -221,22 +222,32 @@ public class FirebaseAuthenticationPlugin extends Plugin {
         try {
             Boolean forceRefresh = call.getBoolean("forceRefresh", false);
 
-            implementation.getIdToken(
-                forceRefresh,
-                new ResultCallback() {
-                    @Override
-                    public void success(Result result) {
-                        call.resolve(result.toJSObject());
-                    }
-
-                    @Override
-                    public void error(Exception exception) {
-                        Logger.error(TAG, exception.getMessage(), exception);
-                        String code = FirebaseAuthenticationHelper.createErrorCode(exception);
-                        call.reject(exception.getMessage(), code);
-                    }
+            NonEmptyResultCallback callback = new NonEmptyResultCallback() {
+                @Override
+                public void success(Result result) {
+                    call.resolve(result.toJSObject());
                 }
-            );
+
+                @Override
+                public void error(Exception exception) {
+                    Logger.error(TAG, exception.getMessage(), exception);
+                    String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+                    call.reject(exception.getMessage(), code);
+                }
+            };
+
+            implementation.getIdToken(forceRefresh, callback);
+        } catch (Exception exception) {
+            Logger.error(TAG, exception.getMessage(), exception);
+            String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+            call.reject(exception.getMessage(), code);
+        }
+    }
+
+    @PluginMethod
+    public void getPendingAuthResult(PluginCall call) {
+        try {
+            implementation.getPendingAuthResult(call);
         } catch (Exception exception) {
             Logger.error(TAG, exception.getMessage(), exception);
             String code = FirebaseAuthenticationHelper.createErrorCode(exception);
@@ -360,6 +371,23 @@ public class FirebaseAuthenticationPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void linkWithOpenIdConnect(PluginCall call) {
+        try {
+            String providerId = call.getString("providerId");
+            if (providerId == null) {
+                call.reject(ERROR_PROVIDER_ID_MISSING);
+                return;
+            }
+
+            implementation.linkWithOpenIdConnect(call, providerId);
+        } catch (Exception exception) {
+            Logger.error(TAG, exception.getMessage(), exception);
+            String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+            call.reject(exception.getMessage(), code);
+        }
+    }
+
+    @PluginMethod
     public void linkWithPhoneNumber(PluginCall call) {
         try {
             String phoneNumber = call.getString("phoneNumber");
@@ -430,14 +458,58 @@ public class FirebaseAuthenticationPlugin extends Plugin {
     }
 
     @PluginMethod
-    public void sendEmailVerification(PluginCall call) {
+    public void revokeAccessToken(PluginCall call) {
         try {
-            FirebaseUser user = implementation.getCurrentUser();
-            if (user == null) {
-                call.reject(ERROR_NO_USER_SIGNED_IN);
+            String token = call.getString("token");
+            if (token == null) {
+                call.reject(ERROR_TOKEN_MISSING);
                 return;
             }
-            implementation.sendEmailVerification(user, () -> call.resolve());
+
+            RevokeAccessTokenOptions options = new RevokeAccessTokenOptions(token);
+            EmptyResultCallback callback = new EmptyResultCallback() {
+                @Override
+                public void success() {
+                    call.resolve();
+                }
+
+                @Override
+                public void error(Exception exception) {
+                    Logger.error(TAG, exception.getMessage(), exception);
+                    String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+                    call.reject(exception.getMessage(), code);
+                }
+            };
+
+            implementation.revokeAccessToken(options, callback);
+        } catch (Exception exception) {
+            Logger.error(TAG, exception.getMessage(), exception);
+            String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+            call.reject(exception.getMessage(), code);
+        }
+    }
+
+    @PluginMethod
+    public void sendEmailVerification(PluginCall call) {
+        try {
+            JSObject actionCodeSettings = call.getObject("actionCodeSettings");
+
+            SendEmailVerificationOptions options = new SendEmailVerificationOptions(actionCodeSettings);
+            EmptyResultCallback callback = new EmptyResultCallback() {
+                @Override
+                public void success() {
+                    call.resolve();
+                }
+
+                @Override
+                public void error(Exception exception) {
+                    Logger.error(TAG, exception.getMessage(), exception);
+                    String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+                    call.reject(exception.getMessage(), code);
+                }
+            };
+
+            implementation.sendEmailVerification(options, callback);
         } catch (Exception exception) {
             Logger.error(TAG, exception.getMessage(), exception);
             String code = FirebaseAuthenticationHelper.createErrorCode(exception);
@@ -453,7 +525,24 @@ public class FirebaseAuthenticationPlugin extends Plugin {
                 call.reject(ERROR_EMAIL_MISSING);
                 return;
             }
-            implementation.sendPasswordResetEmail(email, () -> call.resolve());
+            JSObject actionCodeSettings = call.getObject("actionCodeSettings");
+
+            SendPasswordResetEmailOptions options = new SendPasswordResetEmailOptions(email, actionCodeSettings);
+            EmptyResultCallback callback = new EmptyResultCallback() {
+                @Override
+                public void success() {
+                    call.resolve();
+                }
+
+                @Override
+                public void error(Exception exception) {
+                    Logger.error(TAG, exception.getMessage(), exception);
+                    String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+                    call.reject(exception.getMessage(), code);
+                }
+            };
+
+            implementation.sendPasswordResetEmail(options, callback);
         } catch (Exception exception) {
             Logger.error(TAG, exception.getMessage(), exception);
             String code = FirebaseAuthenticationHelper.createErrorCode(exception);
@@ -475,25 +564,9 @@ public class FirebaseAuthenticationPlugin extends Plugin {
                 return;
             }
 
-            ActionCodeSettings.Builder actionCodeSettings = ActionCodeSettings.newBuilder().setUrl(settings.getString("url"));
+            ActionCodeSettings actionCodeSettings = FirebaseAuthenticationHelper.createActionCodeSettings(settings);
 
-            Boolean handleCodeInApp = settings.getBoolean("handleCodeInApp");
-            if (handleCodeInApp != null) actionCodeSettings.setHandleCodeInApp(handleCodeInApp);
-
-            JSObject iOS = settings.getJSObject("iOS");
-            if (iOS != null) actionCodeSettings.setIOSBundleId(iOS.getString("bundleId"));
-
-            JSObject android = settings.getJSObject("android");
-            if (android != null) actionCodeSettings.setAndroidPackageName(
-                android.getString("packageName"),
-                android.getBoolean("installApp"),
-                android.getString("minimumVersion")
-            );
-
-            String dynamicLinkDomain = settings.getString("dynamicLinkDomain");
-            if (dynamicLinkDomain != null) actionCodeSettings.setDynamicLinkDomain(dynamicLinkDomain);
-
-            implementation.sendSignInLinkToEmail(email, actionCodeSettings.build(), () -> call.resolve());
+            implementation.sendSignInLinkToEmail(email, actionCodeSettings, () -> call.resolve());
         } catch (Exception exception) {
             Logger.error(TAG, exception.getMessage(), exception);
             String code = FirebaseAuthenticationHelper.createErrorCode(exception);
@@ -635,6 +708,23 @@ public class FirebaseAuthenticationPlugin extends Plugin {
     public void signInWithMicrosoft(PluginCall call) {
         try {
             implementation.signInWithMicrosoft(call);
+        } catch (Exception exception) {
+            Logger.error(TAG, exception.getMessage(), exception);
+            String code = FirebaseAuthenticationHelper.createErrorCode(exception);
+            call.reject(exception.getMessage(), code);
+        }
+    }
+
+    @PluginMethod
+    public void signInWithOpenIdConnect(PluginCall call) {
+        try {
+            String providerId = call.getString("providerId");
+            if (providerId == null) {
+                call.reject(ERROR_PROVIDER_ID_MISSING);
+                return;
+            }
+
+            implementation.signInWithOpenIdConnect(call, providerId);
         } catch (Exception exception) {
             Logger.error(TAG, exception.getMessage(), exception);
             String code = FirebaseAuthenticationHelper.createErrorCode(exception);

@@ -215,6 +215,11 @@ public typealias AuthStateChangedObserver = () -> Void
         self.oAuthProviderHandler?.link(call: call, providerId: ProviderId.microsoft)
     }
 
+    @objc func linkWithOpenIdConnect(_ call: CAPPluginCall, providerId: String) {
+        self.savedCall = call
+        self.oAuthProviderHandler?.link(call: call, providerId: providerId)
+    }
+
     @objc func linkWithPhoneNumber(_ options: LinkWithPhoneNumberOptions) {
         self.phoneAuthProviderHandler?.link(options)
     }
@@ -235,15 +240,43 @@ public typealias AuthStateChangedObserver = () -> Void
         }
     }
 
-    @objc func sendEmailVerification(user: User, completion: @escaping (Error?) -> Void) {
-        user.sendEmailVerification(completion: { error in
+    @objc func revokeAccessToken(_ options: RevokeAccessTokenOptions, completion: @escaping (Error?) -> Void) {
+        let token = options.getToken()
+
+        Auth.auth().revokeToken(withAuthorizationCode: token) { error in
             completion(error)
-        })
+        }
     }
 
-    @objc func sendPasswordResetEmail(email: String, completion: @escaping (Error?) -> Void) {
-        return Auth.auth().sendPasswordReset(withEmail: email) { error in
+    @objc func sendEmailVerification(_ options: SendEmailVerificationOptions, completion: @escaping (Error?) -> Void) {
+        let actionCodeSettings = options.getActionCodeSettings()
+
+        guard let user = self.getCurrentUser() else {
+            completion(RuntimeError(plugin.errorNoUserSignedIn))
+            return
+        }
+
+        let completion: (Error?) -> Void = { error in
             completion(error)
+        }
+        if let actionCodeSettings = actionCodeSettings {
+            user.sendEmailVerification(with: actionCodeSettings, completion: completion)
+        } else {
+            user.sendEmailVerification(completion: completion)
+        }
+    }
+
+    @objc func sendPasswordResetEmail(_ options: SendPasswordResetEmailOptions, completion: @escaping (Error?) -> Void) {
+        let email = options.getEmail()
+        let actionCodeSettings = options.getActionCodeSettings()
+
+        let completion: (Error?) -> Void = { error in
+            completion(error)
+        }
+        if let actionCodeSettings = actionCodeSettings {
+            Auth.auth().sendPasswordReset(withEmail: email, actionCodeSettings: actionCodeSettings, completion: completion)
+        } else {
+            Auth.auth().sendPasswordReset(withEmail: email, completion: completion)
         }
     }
 
@@ -417,6 +450,11 @@ public typealias AuthStateChangedObserver = () -> Void
     @objc func signInWithMicrosoft(_ call: CAPPluginCall) {
         self.savedCall = call
         self.oAuthProviderHandler?.signIn(call: call, providerId: ProviderId.microsoft)
+    }
+
+    @objc func signInWithOpenIdConnect(_ call: CAPPluginCall, providerId: String) {
+        self.savedCall = call
+        self.oAuthProviderHandler?.signIn(call: call, providerId: providerId)
     }
 
     @objc func signInWithPhoneNumber(_ options: SignInWithPhoneNumberOptions) {
