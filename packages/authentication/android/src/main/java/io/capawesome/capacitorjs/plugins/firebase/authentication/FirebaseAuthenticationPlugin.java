@@ -957,6 +957,11 @@ public class FirebaseAuthenticationPlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void verifyPhoneNumberToEnrollSecondFactor(PluginCall call) {
+        call.reject("Not available on Android.");
+    }
+
     public void handlePhoneVerificationCompleted(@NonNull final PhoneVerificationCompletedEvent event) {
         notifyListeners(PHONE_VERIFICATION_COMPLETED_EVENT, event.toJSObject(), true);
     }

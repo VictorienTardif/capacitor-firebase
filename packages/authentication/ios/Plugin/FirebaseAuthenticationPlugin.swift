@@ -631,6 +631,15 @@ public class FirebaseAuthenticationPlugin: CAPPlugin, CAPBridgedPlugin {
         })
     }
 
+    @objc func verifyPhoneNumberToEnrollSecondFactor(_ call: CAPPluginCall) {
+        let phoneNumber = call.getString("phoneNumber")
+        if phoneNumber == nil {
+            call.reject(errorPhoneNumberMissing)
+            return
+        }
+        implementation?.verifyPhoneNumberToEnrollSecondFactor(call)
+    }
+
     @objc func useAppLanguage(_ call: CAPPluginCall) {
         implementation?.useAppLanguage()
         call.resolve()

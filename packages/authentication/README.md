@@ -481,6 +481,7 @@ const verifyBeforeUpdateEmail = async () => {
 * [`updateEmail(...)`](#updateemail)
 * [`updatePassword(...)`](#updatepassword)
 * [`updateProfile(...)`](#updateprofile)
+* [`verifyPhoneNumberToEnrollSecondFactor(...)`](#verifyphonenumbertoenrollsecondfactor)
 * [`useAppLanguage()`](#useapplanguage)
 * [`useEmulator(...)`](#useemulator)
 * [`verifyBeforeUpdateEmail(...)`](#verifybeforeupdateemail)
@@ -1509,6 +1510,27 @@ Updates a user's profile data.
 --------------------
 
 
+### verifyPhoneNumberToEnrollSecondFactor(...)
+
+```typescript
+verifyPhoneNumberToEnrollSecondFactor(options: VerifyPhoneNumberToEnrollSecondFactorOptions) => Promise<VerifyPhoneNumberToEnrollSecondFactorResult>
+```
+
+To enroll a new second factor for a user.
+
+Sends a verification message to the user's phone and returns a verification ID.
+
+Only available for iOS.
+
+| Param         | Type                                                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **`options`** | <code><a href="#verifyphonenumbertoenrollsecondfactoroptions">VerifyPhoneNumberToEnrollSecondFactorOptions</a></code> |
+
+**Returns:** <code>Promise&lt;<a href="#verifyphonenumbertoenrollsecondfactorresult">VerifyPhoneNumberToEnrollSecondFactorResult</a>&gt;</code>
+
+--------------------
+
+
 ### useAppLanguage()
 
 ```typescript
@@ -2029,6 +2051,20 @@ An interface covering the possible persistence mechanism types.
 | ----------------- | --------------------------- | ------------------------ | ----- |
 | **`displayName`** | <code>string \| null</code> | The user's display name. | 1.3.0 |
 | **`photoUrl`**    | <code>string \| null</code> | The user's photo URL.    | 1.3.0 |
+
+
+#### VerifyPhoneNumberToEnrollSecondFactorResult
+
+| Prop                 | Type                | Description                                                             |
+| -------------------- | ------------------- | ----------------------------------------------------------------------- |
+| **`verificationId`** | <code>string</code> | The verification ID, which is needed to identify the verification code. |
+
+
+#### VerifyPhoneNumberToEnrollSecondFactorOptions
+
+| Prop              | Type                | Description                                                                                                                                                                                                                                                                               |
+| ----------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`phoneNumber`** | <code>string</code> | The phone number to be verified. Use the `phoneVerificationCompleted` listener to be notified when the verification is completed. Use the `phoneVerificationFailed` listener to be notified when the verification is failed. Use the `phoneCodeSent` listener to get the verification id. |
 
 
 #### UseEmulatorOptions

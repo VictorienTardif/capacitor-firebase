@@ -104,6 +104,7 @@ import type {
   UserInfo,
   UserMetadata,
   VerifyBeforeUpdateEmailOptions,
+  VerifyPhoneNumberToEnrollSecondFactorResult,
 } from './definitions';
 import { Persistence, ProviderId } from './definitions';
 
@@ -858,6 +859,10 @@ export class FirebaseAuthenticationWeb
       throw new Error(FirebaseAuthenticationWeb.ERROR_NO_USER_SIGNED_IN);
     }
     return linkWithCredential(auth.currentUser, credential);
+  }
+
+  public async verifyPhoneNumberToEnrollSecondFactor(): Promise<VerifyPhoneNumberToEnrollSecondFactorResult> {
+    throw new Error('Not available on web.');
   }
 
   private createSignInResult(

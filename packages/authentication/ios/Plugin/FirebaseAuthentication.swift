@@ -373,18 +373,45 @@ public typealias AuthStateChangedObserver = () -> Void
         let password = call.getString("password", "")
 
         self.savedCall = call
-        Auth.auth().signIn(withEmail: email, password: password) { _, error in
-            if let error = error {
-                self.handleFailedSignIn(message: nil, error: error)
-                return
+        Auth.auth().signIn(withEmail: email, password: password) { _, authError in
+            if let authError = authError as? NSError {
+                if authError.code == AuthErrorCode.secondFactorRequired.rawValue {
+                    // The user is a multi-factor user. Second factor challenge is required.
+                    let resolver =
+                        authError.userInfo[AuthErrorUserInfoMultiFactorResolverKey] as! MultiFactorResolver
+                    // Send SMS verification code.
+                    let hint = resolver.hints[0] as! PhoneMultiFactorInfo
+                    PhoneAuthProvider.provider().verifyPhoneNumber(
+                        with: hint,
+                        uiDelegate: nil,
+                        multiFactorSession: resolver.session
+                    ) { (verificationID, error) in
+                        if let error = error {
+                            self.handlePhoneVerificationFailed(error)
+                            CAPLog.print("[", self.plugin.tag, "] ", error)
+                            let code = FirebaseAuthenticationHelper.createErrorCode(error: error)
+                            call.reject(error.localizedDescription, code)
+                            return
+                        }
+                        self.handlePhoneCodeSent(verificationID ?? "")
+                        // Reject sign in with the correct error code and the verificationId that will be needed for sign-in completion.
+                        call.reject(verificationID ?? "", "auth/multi-factor-auth-required")
+                        return
+                    }
+                } else {
+                    // Handle other errors such as wrong password.
+                    self.handleFailedSignIn(message: nil, error: authError)
+                    return
+                }
+            } else {
+                guard let savedCall = self.savedCall else {
+                    return
+                }
+                let user = self.getCurrentUser()
+                let result = FirebaseAuthenticationHelper.createSignInResult(credential: nil, user: user, idToken: nil, nonce: nil,
+                                                                             accessToken: nil, additionalUserInfo: nil)
+                savedCall.resolve(result)
             }
-            guard let savedCall = self.savedCall else {
-                return
-            }
-            let user = self.getCurrentUser()
-            let result = FirebaseAuthenticationHelper.createSignInResult(credential: nil, user: user, idToken: nil, nonce: nil,
-                                                                         accessToken: nil, additionalUserInfo: nil)
-            savedCall.resolve(result)
         }
     }
 
@@ -501,6 +528,32 @@ public typealias AuthStateChangedObserver = () -> Void
 
         changeRequest.commitChanges { error in
             completion(error)
+        }
+    }
+
+    @objc func verifyPhoneNumberToEnrollSecondFactor(_ call: CAPPluginCall) {
+        guard let user = self.getCurrentUser() else {
+            call.reject(plugin.errorNoUserSignedIn)
+            return
+        }
+        guard let phoneNumber = call.getString("phoneNumber") else {
+            return
+        }
+        self.savedCall = call
+        user.multiFactor.getSessionWithCompletion { (session, error) in
+            PhoneAuthProvider.provider()
+                .verifyPhoneNumber(phoneNumber, uiDelegate: nil, multiFactorSession: session) { verificationID, error in
+                    if let error = error {
+                        self.handlePhoneVerificationFailed(error)
+                        CAPLog.print("[", self.plugin.tag, "] ", error)
+                        let code = FirebaseAuthenticationHelper.createErrorCode(error: error)
+                        call.reject(error.localizedDescription, code)
+                    }
+                    self.handlePhoneCodeSent(verificationID ?? "")
+                    var result = JSObject()
+                    result["verificationId"] = verificationID
+                    call.resolve(result)
+                }
         }
     }
 

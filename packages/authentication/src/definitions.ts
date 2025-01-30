@@ -453,6 +453,16 @@ export interface FirebaseAuthenticationPlugin {
    */
   updateProfile(options: UpdateProfileOptions): Promise<void>;
   /**
+   * To enroll a new second factor for a user.
+   *
+   * Sends a verification message to the user's phone and returns a verification ID.
+   *
+   * Only available for iOS.
+   */
+  verifyPhoneNumberToEnrollSecondFactor(
+    options: VerifyPhoneNumberToEnrollSecondFactorOptions,
+  ): Promise<VerifyPhoneNumberToEnrollSecondFactorResult>;
+  /**
    * Sets the user-facing language code to be the default app language.
    *
    * @since 0.1.0
@@ -1178,6 +1188,23 @@ export interface UnlinkResult {
    * @since 1.1.0
    */
   user: User | null;
+}
+
+export interface VerifyPhoneNumberToEnrollSecondFactorOptions {
+  /**
+   * The phone number to be verified.
+   *
+   * Use the `phoneVerificationCompleted` listener to be notified when the verification is completed.
+   * Use the `phoneVerificationFailed` listener to be notified when the verification is failed.
+   * Use the `phoneCodeSent` listener to get the verification id.
+   */
+  phoneNumber: string;
+}
+export interface VerifyPhoneNumberToEnrollSecondFactorResult {
+  /**
+   * The verification ID, which is needed to identify the verification code.
+   */
+  verificationId: string;
 }
 
 /**
